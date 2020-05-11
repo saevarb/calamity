@@ -54,6 +54,8 @@ import qualified Polysemy.Error                   as P
 import qualified Polysemy.Fail                    as P
 import qualified Polysemy.Reader                  as P
 
+import           Prelude                          hiding ( error )
+
 timeA :: P.Member (P.Embed IO) r => P.Sem r a -> P.Sem r (Double, a)
 timeA m = do
   start <- P.embed getPOSIXTime
@@ -140,6 +142,13 @@ clientLoop = do
       ShutDown     -> P.throw ()
   debug "leaving client loop"
 
+handleCustomApp :: forall r. BotC r => Maybe Dynamic -> P.Sem r ()
+handleCustomApp (Just e) = case fromDynamic @(P.Sem r ()) e of
+  Just r -> r
+  Nothing -> do
+    error $ "Couldn't undynamic it, wanted: " +|| typeRep (Proxy @(P.Sem r ())) ||+ ", but got: " +|| e ||+ ""
+handleCustomApp Nothing = error "dynamic application failed?"
+
 handleCustomEvent :: forall r. BotC r => TypeRep -> Dynamic -> P.Sem r ()
 handleCustomEvent s d = do
   debug $ "handling a custom event, s: " +|| s ||+ ", d: " +|| d ||+ ""
@@ -149,7 +158,7 @@ handleCustomEvent s d = do
 
   debug $ "handlers: " +|| handlers ||+ ""
 
-  for_ handlers (\h -> P.async . fromJust . fromDynamic @(P.Sem r ()) $ dynApp h d)
+  for_ handlers (\h -> P.async . handleCustomApp $ dynApply h d)
 
 handleEvent :: BotC r => DispatchData -> P.Sem r ()
 handleEvent data' = do
