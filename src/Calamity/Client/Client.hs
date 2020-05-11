@@ -142,10 +142,14 @@ clientLoop = do
 
 handleCustomEvent :: forall r. BotC r => TypeRep -> Dynamic -> P.Sem r ()
 handleCustomEvent s d = do
-  debug "handling a custom event"
+  debug $ "handling a custom event, s: " +|| s ||+ ", d: " +|| d ||+ ""
   eventHandlers <- P.atomicGet
 
-  for_ (getCustomEventHandlers s (dynTypeRep d) eventHandlers) (\h -> P.async . fromJust . fromDynamic @(P.Sem r ()) $ dynApp h d)
+  let handlers = getCustomEventHandlers s (dynTypeRep d) eventHandlers
+
+  debug $ "handlers: " +|| handlers ||+ ""
+
+  for_ handlers (\h -> P.async . fromJust . fromDynamic @(P.Sem r ()) $ dynApp h d)
 
 handleEvent :: BotC r => DispatchData -> P.Sem r ()
 handleEvent data' = do
